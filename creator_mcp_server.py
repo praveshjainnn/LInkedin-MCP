@@ -205,6 +205,55 @@ Return JSON: audience, tone, style_notes, do, dont."""
     return _safe_chat_json(prompt, llm_provider=llm_provider, api_key=api_key)
 
 @mcp.tool()
+async def generate_linkedin_posts_from_text(
+    brand_desc: str = "",
+    pillar_text: str = "",
+    n_posts: int = 3,
+    trending_context: str = "",
+    sample_posts: str = "",
+    llm_provider: str = "ollama",
+    api_key: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Plain-English wrapper for LinkedIn generation.
+
+    This tool avoids the need for the caller to provide `brand_profile` JSON.
+    It:
+      1) derives brand voice (analyze_brand_voice)
+      2) generates LinkedIn posts (generate_linkedin_posts)
+    """
+    brand_desc_clean = (brand_desc or "").strip()[:500]
+    pillar_clean = (pillar_text or "").strip()[: int(PILLAR_CHAR_LIMIT)]
+    trending_context_clean = (trending_context or "").strip()
+    sample_posts_clean = (sample_posts or "").strip()[:800]
+
+    if not brand_desc_clean or not pillar_clean:
+        return [{
+            "title": "Missing input",
+            "hook": "Provide both Brand Description and Pillar Content.",
+            "body": "",
+            "CTA": "",
+            "format_hint": "error",
+        }]
+
+    brand_profile = await analyze_brand_voice(
+        brand_desc=brand_desc_clean,
+        samples=sample_posts_clean,
+        llm_provider=llm_provider,
+        api_key=api_key,
+    )
+
+    posts = await generate_linkedin_posts(
+        pillar_text=pillar_clean,
+        brand_profile=brand_profile,
+        trending_context=trending_context_clean,
+        n_posts=int(n_posts),
+        llm_provider=llm_provider,
+        api_key=api_key,
+    )
+    return posts
+
+@mcp.tool()
 async def summarise_pillar(
     pillar_text: str,
     brand_profile: Dict[str, Any],

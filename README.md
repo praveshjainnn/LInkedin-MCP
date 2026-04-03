@@ -128,6 +128,10 @@ The `creator_mcp_server.py` defines the core Agent tasks via FastMCP:
   - `fetch_trending_news`
   - `generate_linkedin_posts`
 
+For callers that only have plain-English inputs (no `brand_profile` JSON),
+use:
+  - `generate_linkedin_posts_from_text`
+
 ## 📜 License
 
 Released under the **MIT License**.
