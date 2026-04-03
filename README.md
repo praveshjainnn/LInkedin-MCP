@@ -40,9 +40,29 @@ A background simulation of a true Productivity Engine. When triggered (either vi
    ```
 4. Open your browser and navigate to `http://localhost:1337` to view the UI.
 
+## ☁️ Deploy online (end users do not install Docker)
+
+**Docker is only for whoever builds/runs the server** (you or a cloud build pipeline). **Visitors only open your site in a browser** — they never install Docker or Python.
+
+Typical flow:
+
+1. Push this repo to **GitHub** (or similar).
+2. On a host such as **[Railway](https://railway.app)**, **[Render](https://render.com)**, **[Fly.io](https://fly.io)**, or **[Google Cloud Run](https://cloud.google.com/run)**, create a **Web Service** from the repo using the included **`Dockerfile`**, or use their **“Docker”** / **“Buildpack”** option.
+3. Set the service **port** to **1337** (or whatever the platform maps to **HTTPS** publicly).
+4. Add **environment variables** on the host (not in git):
+   - **`GROQ_API_KEY`** — recommended for cloud: there is usually **no Ollama** on the server; Groq powers generation when users pick **Groq** in the UI (or you rely on this key when the UI field is empty).
+   - **`MCP_CURSOR_TOKEN`** — random secret; required if you expose **`/mcp`** on the public internet. Users put `Authorization: Bearer <token>` in Cursor’s MCP config.
+   - **`GEMINI_API_KEY`** — only if you use features that read it.
+
+5. Share **`https://your-domain.com`** — that is all end users need for the **web app**.
+
+**Ollama in the cloud:** A default PaaS container does **not** run Ollama. For local-style Ollama you would need a **GPU VM** or keep Ollama on your laptop and run the app locally. For most public deployments, **Groq** (or another cloud API) is the practical choice.
+
+---
+
 ## 🐳 Docker Deployment
 
-This project is fully containerized and can be run with Docker — no local Python or pip setup required.
+This project is fully containerized and can be run with Docker — no local Python or pip setup required **on the machine where you build/run the image** (still not required for people who only use your deployed URL).
 
 ### Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
@@ -57,6 +77,18 @@ docker build -t praveshjainnn/linkedin-mcp-creator .
 
 docker run -p 1337:1337 praveshjainnn/linkedin-mcp-creator
 Open your browser → **http://localhost:1337**
+
+### Cursor (remote MCP)
+
+The app exposes **Streamable HTTP** MCP at **`/mcp/`** (trailing slash matters).
+
+1. Run the server (or container) so port **1337** is reachable.
+2. In Cursor: **Settings → MCP** (or edit `%USERPROFILE%\.cursor\mcp.json`) with **`transport`: `"streamable-http"`** and URL:
+   - Local: `http://127.0.0.1:1337/mcp` or `http://127.0.0.1:1337/mcp/` (both work; Cursor often uses no trailing slash)
+   - Deployed: `https://your-domain.com/mcp` (same path; use **`MCP_CURSOR_TOKEN`** + Bearer header in production)
+3. Optional: set env **`MCP_CURSOR_TOKEN`** to a secret string when deploying publicly, then in Cursor add header **`Authorization`**: `Bearer <same secret>`.
+
+For local Docker with no token, omit `MCP_CURSOR_TOKEN` and no auth header is required.
 
 
 

@@ -1,4 +1,5 @@
 import json
+import os
 import urllib.request
 import urllib.error
 import xml.etree.ElementTree as ET
@@ -6,7 +7,9 @@ from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP  # type: ignore
 
-mcp = FastMCP("linkedin_creator_tools")
+# streamable_http_path="/" so the parent FastAPI app can mount this app at "/mcp"
+# (full MCP URL: https://your-host/mcp) without a duplicate "/mcp/mcp" path.
+mcp = FastMCP("linkedin_creator_tools", streamable_http_path="/")
 
 # ── Speed knobs ──────────────────────────────────────────────
 # Truncate pillar text before it reaches the LLM.
@@ -41,9 +44,9 @@ def _safe_chat_json(
     """Send a chat request to the selected LLM provider and return parsed JSON."""
     
     if llm_provider.lower() == "groq":
-        # Groq is OpenAI-compatible
+        # Groq is OpenAI-compatible. UI may pass api_key; hosted deploys can set GROQ_API_KEY instead.
         url = "https://api.groq.com/openai/v1/chat/completions"
-        api_key_clean = (api_key or "").strip()
+        api_key_clean = (api_key or os.environ.get("GROQ_API_KEY", "")).strip()
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key_clean}",

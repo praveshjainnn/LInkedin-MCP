@@ -14,12 +14,16 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore
 
 from fastapi import FastAPI, HTTPException  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from fastapi.responses import StreamingResponse  # type: ignore
 from fastapi.staticfiles import StaticFiles  # type: ignore
 from pydantic import BaseModel  # type: ignore
+from starlette.types import ASGIApp, Receive, Scope, Send  # type: ignore
 
 from mcp import ClientSession, StdioServerParameters  # type: ignore
 from mcp.client.stdio import stdio_client  # type: ignore
+
+from creator_mcp_server import mcp as linkedin_fastmcp
 
 SERVER_PATH = "creator_mcp_server.py"
 
@@ -162,6 +166,43 @@ class MCPClientHelper:
 
 mcp_client = MCPClientHelper()
 
+# Streamable HTTP MCP for Cursor (mounted at /mcp). Lifespan is started in FastAPI lifespan
+# because mounted Starlette apps do not receive ASGI lifespan events from the parent.
+_mcp_streamable_app = linkedin_fastmcp.streamable_http_app()
+
+
+def _optional_mcp_bearer_gate(inner: ASGIApp) -> ASGIApp:
+    """Require Authorization: Bearer <MCP_CURSOR_TOKEN> when that env var is set."""
+
+    async def gate(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            secret = (os.environ.get("MCP_CURSOR_TOKEN") or "").strip()
+            if secret:
+                raw = scope.get("headers") or []
+                hdr = {k.decode().lower(): v.decode() for k, v in raw}
+                if hdr.get("authorization", "") != f"Bearer {secret}":
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": 401,
+                            "headers": [
+                                (b"content-type", b"application/json; charset=utf-8"),
+                                (b"www-authenticate", b'Bearer realm="mcp"'),
+                            ],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": b'{"detail":"Unauthorized: set Authorization Bearer to match MCP_CURSOR_TOKEN"}',
+                        }
+                    )
+                    return
+        await inner(scope, receive, send)
+
+    return gate
+
+
 def get_latest_blog_post(rss_url: str) -> str:
     print(f"[SCANNING] RSS Feed: {rss_url}")
     req = urllib.request.Request(rss_url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -249,18 +290,30 @@ async def run_automated_pipeline(user_feed: str = "https://techcrunch.com/feed/"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await mcp_client.connect()
-    
-    # 🕒 Step 1: Start the Background Scheduler
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(run_automated_pipeline, 'cron', hour=8, minute=0)
-    scheduler.start()
-    print("[SYSTEM] Background Scheduler Started (Runs every day at 8:00 AM)")
-    
-    yield
-    await mcp_client.close()
+    # Start Streamable HTTP session manager for Cursor remote MCP (/mcp).
+    async with _mcp_streamable_app.router.lifespan_context(_mcp_streamable_app):
+        await mcp_client.connect()
+
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(run_automated_pipeline, "cron", hour=8, minute=0)
+        scheduler.start()
+        print("[SYSTEM] Background Scheduler Started (Runs every day at 8:00 AM)")
+        print("[SYSTEM] Remote MCP (Cursor): streamable HTTP at /mcp/ (trailing slash)")
+
+        yield
+
+        scheduler.shutdown(wait=False)
+        await mcp_client.close()
 
 app = FastAPI(lifespan=lifespan)
+
+# Cursor (and other desktop clients) may send CORS preflight (OPTIONS) to localhost MCP.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class PipelineRequest(BaseModel):
     user_feed: str
@@ -443,7 +496,27 @@ async def get_image_prompts(req: ImagePromptsRequest):
 static_path = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(static_path):
     os.makedirs(static_path, exist_ok=True)
+# Remote MCP for Cursor: streamable HTTP at /mcp/ (Cursor often POSTs to /mcp without slash).
+app.mount("/mcp/", _optional_mcp_bearer_gate(_mcp_streamable_app))
 app.mount("/", StaticFiles(directory=static_path, html=True), name="static")
+
+
+def _asgi_normalize_mcp_slash(app: ASGIApp) -> ASGIApp:
+    """Outermost wrapper: fix path before FastAPI middleware/routing (avoids POST /mcp -> StaticFiles 405)."""
+
+    async def asgi(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            path = scope.get("path") or ""
+            if path == "/mcp":
+                scope = dict(scope)
+                scope["path"] = "/mcp/"
+                scope["raw_path"] = b"/mcp/"
+        await app(scope, receive, send)
+
+    return asgi
+
+
+app = _asgi_normalize_mcp_slash(app)
 
 if __name__ == "__main__":
     import uvicorn  # type: ignore
