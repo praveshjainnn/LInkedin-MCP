@@ -156,7 +156,7 @@
             <div id="mode-factory" class="mode-content" style="display: none;">
 
                 <div class="factory-info-card">
-                    <p>Simulate the background <strong>CRON pipeline</strong>. The system autonomously scrapes an RSS feed, injects breaking news via <strong>RAG</strong>, runs <strong>Llama 3.2</strong> locally, and dispatches an approval email to your team.</p>
+                    <p>Simulate the background <strong>CRON pipeline</strong>. The system scrapes an RSS feed, injects breaking news via <strong>RAG</strong>, then generates posts with the <strong>AI Engine</strong> you chose above (<strong>Ollama</strong> or <strong>Groq</strong>), and builds an approval email draft.</p>
                 </div>
 
                 <div class="form-group">
@@ -197,7 +197,7 @@
                     <div class="stage-item stage-pending">
                         <div class="stage-dot dot-muted"></div>
                         <div class="stage-content">
-                            <span class="stage-label">Llama 3.2 Generating</span>
+                            <span class="stage-label">LLM generation</span>
                             <span class="stage-status mono-text">PENDING</span>
                         </div>
                     </div>
@@ -215,7 +215,7 @@
 
             <!-- Panel Footer -->
             <div class="panel-footer">
-                <span class="mono-text footer-stack">Ollama → MCP → FastAPI → APScheduler</span>
+                <span class="mono-text footer-stack">AI Engine → MCP → FastAPI → APScheduler</span>
             </div>
 
         </div>

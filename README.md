@@ -58,6 +58,24 @@ Typical flow:
 
 **Ollama in the cloud:** A default PaaS container does **not** run Ollama. For local-style Ollama you would need a **GPU VM** or keep Ollama on your laptop and run the app locally. For most public deployments, **Groq** (or another cloud API) is the practical choice.
 
+### Deploy on [Render](https://render.com)
+
+1. Push this repository to **GitHub** (or GitLab / Bitbucket connected to Render).
+2. In the [Render Dashboard](https://dashboard.render.com): **New** → **Web Service** → connect the repo.
+3. Configure the service:
+   - **Runtime:** **Docker** (Render will use the root **`Dockerfile`**).
+   - **Instance type:** choose a plan (free tier is available but **spins down after idle**; first request can be slow).
+   - Render injects **`PORT`** automatically; this project’s image listens on **`$PORT`** (defaults to **1337** locally).
+4. **Environment** → **Environment Variables** (add at least):
+   | Variable | Purpose |
+   |----------|---------|
+   | `GROQ_API_KEY` | Required for **Groq** (Manual Studio, Automated Factory, and the daily **8:00 AM** cron if provider is Groq). |
+   | `PIPELINE_LLM_PROVIDER` | Optional. Set to **`groq`** on Render so the **scheduled** pipeline uses Groq + `GROQ_API_KEY` (default is **`ollama`**, which fails in the cloud). |
+   | `MCP_CURSOR_TOKEN` | Long random string if you use **Cursor MCP** against `https://your-service.onrender.com/mcp`. |
+5. **Create Web Service**. Wait for the build and deploy, then open the **`.onrender.com`** URL Render assigns.
+
+**After deploy:** Share `https://<your-service-name>.onrender.com` — visitors only need a browser. For Cursor MCP, use `https://<your-service-name>.onrender.com/mcp` with `transport`: `streamable-http` and the Bearer token if you set `MCP_CURSOR_TOKEN`.
+
 ---
 
 ## 🐳 Docker Deployment

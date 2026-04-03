@@ -29,21 +29,13 @@ RUN pip install --upgrade pip && \
 COPY . .
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Expose the port that server.py (FastAPI / Uvicorn) listens on
+# Render & other clouds set PORT at runtime; local Docker defaults to 1337.
 # ─────────────────────────────────────────────────────────────────────────────
 EXPOSE 1337
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Runtime command
-#   Starts the FastAPI server with Uvicorn.
-#   --host 0.0.0.0  → listen on all interfaces (required inside Docker)
-#   --port 1337     → must match EXPOSE above
-#
-#   NOTE: creator_mcp_server.py is spawned as a subprocess by server.py via
-#   MCP stdio transport — no separate CMD is needed for it.
-#
-#   NOTE: Ollama is an external dependency. Either:
-#     a) Run Ollama on the host and pass --add-host=host.docker.internal:host-gateway
-#     b) Run Ollama in a separate container and use docker-compose (recommended)
+#   creator_mcp_server.py is spawned as a subprocess by server.py (stdio MCP).
+#   Ollama on the host: use --add-host=host.docker.internal:host-gateway if needed.
 # ─────────────────────────────────────────────────────────────────────────────
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "1337"]
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-1337}"]

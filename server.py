@@ -248,7 +248,12 @@ def send_approval_email(generated_posts: List[Dict[str, Any]], target_email: str
     return body
 
 
-async def run_automated_pipeline(user_feed: str = "https://techcrunch.com/feed/", target_email: str = "marketing_manager@company.com") -> str:
+async def run_automated_pipeline(
+    user_feed: str = "https://techcrunch.com/feed/",
+    target_email: str = "marketing_manager@company.com",
+    llm_provider: str = "ollama",
+    api_key: Optional[str] = None,
+) -> str:
     print("[PIPELINE WAKING UP]...")
     
     # 1. RSS Scanning Phase
@@ -270,7 +275,10 @@ async def run_automated_pipeline(user_feed: str = "https://techcrunch.com/feed/"
     trending_context = news_raw.get("trending_news", "No news available.") if isinstance(news_raw, dict) else str(news_raw)
     
     # 3. AI Engine Phase
-    print("[AI ENGINE] Processing Content through Local Llama 3.2 Model... (This may take a minute)")
+    effective_key: Optional[str] = None
+    if llm_provider.lower() == "groq":
+        effective_key = (api_key or os.environ.get("GROQ_API_KEY", "")).strip() or None
+    print(f"[AI ENGINE] generate_linkedin_posts via {llm_provider!r}... (may take a minute)")
     posts_raw = await mcp_client.call_tool(
         "generate_linkedin_posts",
         {
@@ -278,6 +286,8 @@ async def run_automated_pipeline(user_feed: str = "https://techcrunch.com/feed/"
             "brand_profile": brand_profile,
             "trending_context": trending_context,
             "n_posts": 3,
+            "llm_provider": llm_provider,
+            "api_key": effective_key,
         }
     )
     posts = _normalise_posts(posts_raw)
@@ -294,8 +304,13 @@ async def lifespan(app: FastAPI):
     async with _mcp_streamable_app.router.lifespan_context(_mcp_streamable_app):
         await mcp_client.connect()
 
+        async def _cron_pipeline() -> None:
+            prov = (os.environ.get("PIPELINE_LLM_PROVIDER") or "ollama").strip().lower()
+            key = (os.environ.get("GROQ_API_KEY") or "").strip() or None
+            await run_automated_pipeline(llm_provider=prov, api_key=key)
+
         scheduler = AsyncIOScheduler()
-        scheduler.add_job(run_automated_pipeline, "cron", hour=8, minute=0)
+        scheduler.add_job(_cron_pipeline, "cron", hour=8, minute=0)
         scheduler.start()
         print("[SYSTEM] Background Scheduler Started (Runs every day at 8:00 AM)")
         print("[SYSTEM] Remote MCP (Cursor): streamable HTTP at /mcp/ (trailing slash)")
@@ -318,12 +333,19 @@ app.add_middleware(
 class PipelineRequest(BaseModel):
     user_feed: str
     target_email: str
+    llm_provider: str = "ollama"
+    api_key: Optional[str] = None
 
 @app.post("/api/test-pipeline")
 async def trigger_pipeline_test(req: PipelineRequest):
     """Manually trigger the pipeline and return the email draft."""
     try:
-        email_draft = await run_automated_pipeline(req.user_feed, req.target_email)
+        email_draft = await run_automated_pipeline(
+            req.user_feed,
+            req.target_email,
+            llm_provider=req.llm_provider,
+            api_key=req.api_key,
+        )
         return {"message": email_draft}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

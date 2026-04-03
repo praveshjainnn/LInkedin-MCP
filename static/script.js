@@ -376,14 +376,19 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerBtnText.style.display = 'none';
         triggerLoader.style.display = 'block';
         triggerBtn.disabled = true;
-        triggerMessage.textContent = "Pipelines running... Scanning feed, injecting RAG context, and running local Llama 3.2. This could take up to 2 minutes...";
+        triggerMessage.textContent = "Pipelines running... Scanning feed, injecting RAG context, and running the selected AI engine. This could take up to 2 minutes...";
         triggerMessage.style.color = '#a1a1aa';
 
         try {
             const response = await fetch('/api/test-pipeline', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_feed: feedUrl, target_email: targetEmail })
+                body: JSON.stringify({
+                    user_feed: feedUrl,
+                    target_email: targetEmail,
+                    llm_provider: selectedProvider,
+                    api_key: document.getElementById('grok_api_key').value || null
+                })
             });
             
             let errData;
