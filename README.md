@@ -77,6 +77,8 @@ Typical flow:
 
 **After deploy:** Share `https://<your-service-name>.onrender.com` — visitors only need a browser. For Cursor MCP, use `https://<your-service-name>.onrender.com/mcp` with `transport`: `streamable-http` and the Bearer token if you set `MCP_CURSOR_TOKEN`.
 
+If remote MCP returned **HTTP 421**, that was DNS-rebinding protection blocking non-localhost `Host` headers; the included `creator_mcp_server.py` disables that for public HTTPS deploys—redeploy the latest image.
+
 ---
 
 ## 🐳 Docker Deployment

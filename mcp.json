@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "linkedin-mcp-creator": {
+      "transport": "streamable-http",
+      "url": "https://linkedin-mcp-mbwe.onrender.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YynCALMEQF2T0SovuDOcUNr3j1gWePzhilq97kKIspV4Bb6X"
+      }
+    }
+  }
+}

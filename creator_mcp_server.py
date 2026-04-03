@@ -6,10 +6,17 @@ import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP  # type: ignore
+from mcp.server.transport_security import TransportSecuritySettings  # type: ignore
 
 # streamable_http_path="/" so the parent FastAPI app can mount this app at "/mcp"
 # (full MCP URL: https://your-host/mcp) without a duplicate "/mcp/mcp" path.
-mcp = FastMCP("linkedin_creator_tools", streamable_http_path="/")
+# Disable DNS-rebinding checks: FastMCP defaults to localhost-only Host headers, which
+# returns HTTP 421 on real hosts (e.g. *.onrender.com). HTTPS + Bearer token still apply.
+mcp = FastMCP(
+    "linkedin_creator_tools",
+    streamable_http_path="/",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
 
 # ── Speed knobs ──────────────────────────────────────────────
 # Truncate pillar text before it reaches the LLM.
