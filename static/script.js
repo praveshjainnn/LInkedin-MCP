@@ -27,6 +27,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const groqKeyInput = document.getElementById('grok_api_key');
     let selectedProvider = 'ollama';
 
+    function applyProviderToUI(provider) {
+        selectedProvider = provider;
+        providerOptions.forEach(o => o.classList.remove('active'));
+        const el =
+            provider === 'groq'
+                ? document.getElementById('provider-groq')
+                : document.getElementById('provider-ollama');
+        if (el) el.classList.add('active');
+        if (selectedProvider === 'groq') {
+            grokConfig.style.display = 'flex';
+            activeModelStatus.textContent = 'Groq · llama3-70b';
+        } else {
+            grokConfig.style.display = 'none';
+            activeModelStatus.textContent = 'Ollama · llama3.2';
+        }
+    }
+
     setKeyBtn.addEventListener('click', () => {
         if (groqKeyInput.value.length > 5) {
             setKeyBtn.textContent = '✓ READY';
@@ -42,20 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     providerOptions.forEach(opt => {
-        opt.addEventListener('click', () => {
-            providerOptions.forEach(o => o.classList.remove('active'));
-            opt.classList.add('active');
-            selectedProvider = opt.dataset.provider;
-            
-            if (selectedProvider === 'groq') {
-                grokConfig.style.display = 'flex';
-                activeModelStatus.textContent = 'Groq · llama3-70b';
-            } else {
-                grokConfig.style.display = 'none';
-                activeModelStatus.textContent = 'Ollama · llama3.2';
-            }
-        });
+        opt.addEventListener('click', () => applyProviderToUI(opt.dataset.provider));
     });
+
+    const host = window.location.hostname;
+    const isLocalDev =
+        host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '';
+    if (!isLocalDev) {
+        applyProviderToUI('groq');
+    }
 
     // Tab switching logic for separate tab groups
     const tabs = document.querySelectorAll('.tab');

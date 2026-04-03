@@ -69,8 +69,9 @@ Typical flow:
 4. **Environment** → **Environment Variables** (add at least):
    | Variable | Purpose |
    |----------|---------|
-   | `GROQ_API_KEY` | Required for **Groq** (Manual Studio, Automated Factory, and the daily **8:00 AM** cron if provider is Groq). |
-   | `PIPELINE_LLM_PROVIDER` | Optional. Set to **`groq`** on Render so the **scheduled** pipeline uses Groq + `GROQ_API_KEY` (default is **`ollama`**, which fails in the cloud). |
+   | `GROQ_API_KEY` | **Required on Render** for Groq (set in dashboard; users can still paste a key in the UI). |
+   | `DEFAULT_LLM_PROVIDER` | Set to **`groq`** so API defaults and the **browser** guidance match cloud (no Ollama). Strongly recommended on Render. |
+   | `PIPELINE_LLM_PROVIDER` | Optional override for the **8:00 AM** cron only; if unset, cron uses `DEFAULT_LLM_PROVIDER` then **`ollama`**. |
    | `MCP_CURSOR_TOKEN` | Long random string if you use **Cursor MCP** against `https://your-service.onrender.com/mcp`. |
 5. **Create Web Service**. Wait for the build and deploy, then open the **`.onrender.com`** URL Render assigns.
 

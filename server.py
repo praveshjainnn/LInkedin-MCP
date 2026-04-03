@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from fastapi.responses import StreamingResponse  # type: ignore
 from fastapi.staticfiles import StaticFiles  # type: ignore
-from pydantic import BaseModel  # type: ignore
+from pydantic import BaseModel, Field  # type: ignore
 from starlette.types import ASGIApp, Receive, Scope, Send  # type: ignore
 
 from mcp import ClientSession, StdioServerParameters  # type: ignore
@@ -166,6 +166,12 @@ class MCPClientHelper:
 
 mcp_client = MCPClientHelper()
 
+
+def _default_llm_provider() -> str:
+    """Host can set DEFAULT_LLM_PROVIDER=groq (e.g. on Render) so APIs default to cloud, not Ollama."""
+    return (os.environ.get("DEFAULT_LLM_PROVIDER") or "ollama").strip().lower()
+
+
 # Streamable HTTP MCP for Cursor (mounted at /mcp). Lifespan is started in FastAPI lifespan
 # because mounted Starlette apps do not receive ASGI lifespan events from the parent.
 _mcp_streamable_app = linkedin_fastmcp.streamable_http_app()
@@ -305,7 +311,11 @@ async def lifespan(app: FastAPI):
         await mcp_client.connect()
 
         async def _cron_pipeline() -> None:
-            prov = (os.environ.get("PIPELINE_LLM_PROVIDER") or "ollama").strip().lower()
+            prov = (
+                os.environ.get("PIPELINE_LLM_PROVIDER")
+                or os.environ.get("DEFAULT_LLM_PROVIDER")
+                or "ollama"
+            ).strip().lower()
             key = (os.environ.get("GROQ_API_KEY") or "").strip() or None
             await run_automated_pipeline(llm_provider=prov, api_key=key)
 
@@ -333,7 +343,7 @@ app.add_middleware(
 class PipelineRequest(BaseModel):
     user_feed: str
     target_email: str
-    llm_provider: str = "ollama"
+    llm_provider: str = Field(default_factory=_default_llm_provider)
     api_key: Optional[str] = None
 
 @app.post("/api/test-pipeline")
@@ -394,7 +404,7 @@ class GenerateRequest(BaseModel):
     n_posts: int = 3
     use_trending_news: bool = False
     feed_url: str = "https://techcrunch.com/feed/"
-    llm_provider: str = "ollama"
+    llm_provider: str = Field(default_factory=_default_llm_provider)
     api_key: Optional[str] = None
 
 @app.post("/api/generate")
@@ -485,7 +495,7 @@ async def export_txt(req: ExportCSVRequest):
 
 class ImagePromptsRequest(BaseModel):
     posts: List[Dict[str, Any]]
-    llm_provider: str = "ollama"
+    llm_provider: str = Field(default_factory=_default_llm_provider)
     api_key: Optional[str] = None
 
 @app.post("/api/image-prompts")
