@@ -73,6 +73,7 @@ Typical flow:
    | `DEFAULT_LLM_PROVIDER` | Set to **`groq`** so API defaults and the **browser** guidance match cloud (no Ollama). Strongly recommended on Render. |
    | `PIPELINE_LLM_PROVIDER` | Optional override for the **8:00 AM** cron only; if unset, cron uses `DEFAULT_LLM_PROVIDER` then **`ollama`**. |
    | `MCP_CURSOR_TOKEN` | Long random string if you use **Cursor MCP** against `https://your-service.onrender.com/mcp`. |
+   | `REQUIRE_MCP_AUTH` | Optional. If set to `true`, the server enforces `Authorization: Bearer MCP_CURSOR_TOKEN` for `/mcp`. Leave unset/false for Claude testing (no custom headers). |
 5. **Create Web Service**. Wait for the build and deploy, then open the **`.onrender.com`** URL Render assigns.
 
 **After deploy:** Share `https://<your-service-name>.onrender.com` — visitors only need a browser. For Cursor MCP, use `https://<your-service-name>.onrender.com/mcp` with `transport`: `streamable-http` and the Bearer token if you set `MCP_CURSOR_TOKEN`.

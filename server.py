@@ -178,12 +178,24 @@ _mcp_streamable_app = linkedin_fastmcp.streamable_http_app()
 
 
 def _optional_mcp_bearer_gate(inner: ASGIApp) -> ASGIApp:
-    """Require Authorization: Bearer <MCP_CURSOR_TOKEN> when that env var is set."""
+    """
+    Optionally require Authorization: Bearer <MCP_CURSOR_TOKEN>.
+
+    For local testing and for Claude (which may not support custom headers),
+    you usually want this gate OFF. Enable it by setting:
+      REQUIRE_MCP_AUTH=true
+    """
 
     async def gate(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
+            require_auth = (os.environ.get("REQUIRE_MCP_AUTH") or "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            )
             secret = (os.environ.get("MCP_CURSOR_TOKEN") or "").strip()
-            if secret:
+            if require_auth and secret:
                 raw = scope.get("headers") or []
                 hdr = {k.decode().lower(): v.decode() for k, v in raw}
                 if hdr.get("authorization", "") != f"Bearer {secret}":
